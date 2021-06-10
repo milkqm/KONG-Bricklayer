@@ -1,0 +1,36 @@
+name: Paradox Apps Build & Deploy
+
+on:
+  repository_dispatch
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+jobs:
+
+  nuxt-build:
+    strategy:
+      matrix:
+        os: [ubuntu-18.04]
+        node: [14.6.0]
+        python: [3.6.9]
+
+    runs-on: [self-hosted, dong]
+    steps:
+    - name: Build & Deploy Apps 🏗
+      run: |
+        cd /home/server/workspace/deployment/olivia/bin &&
+        ./build.sh ${{ github.event.client_payload.branch }} ${{ github.event.client_payload.instance }} ${{ github.event.client_payload.compress }}
+
+    - name: Build Notification
+      if: always()
+      uses: adamkdean/simple-slack-notify@master
+      with:
+        channel: ${{ github.event.client_payload.report_channel }}
+        status: ${{ job.status }}
+        cancelled_text: 'App Build (#${env.GITHUB_RUN_NUMBER}) was cancelled'
+        failure_text: 'App Build (#${env.GITHUB_RUN_NUMBER}) failed'
+        success_text: 'App Build (#${env.GITHUB_RUN_NUMBER}) completed successfully, triggered Jenkins deploy.'
+        fields: |
+          [{ "title": "GA Build Log", "value": "${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}"}]
